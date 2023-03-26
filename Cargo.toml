@@ -6,3 +6,4 @@ authors = ["Yasin Tatar <ytatar9@googlemail.com>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+termion = "1" # semantic versioning: this will get the latest 1.x.x version
