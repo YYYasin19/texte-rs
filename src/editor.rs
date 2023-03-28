@@ -21,11 +21,22 @@ pub struct Editor {
 
 impl Editor {
     pub fn default() -> Self {
+
+        // open a default file
+        let args: Vec<String> = std::env::args().collect();
+        let file = if args.len() > 1 {
+            let file_path = &args[1];
+            File::open(file_path).unwrap_or_default()
+        } else {
+            File::default()
+        };
+
+
         Self {
             will_quit: false,
             terminal: Terminal::default().expect("Terminal should be initialized"),
             cursor_position: Position::default(),
-            file: File::open(),
+            file,
         }
     }
 
@@ -104,9 +115,13 @@ impl Editor {
             Terminal::clear_current_line();
             if let Some(row) = self.file.row(display_row as usize) {
                 self.draw_row(row);
-            } else if self.file.is_empty() && display_row == height / 2 {
-                self.draw_welcome_message();
-            } else { println!("{}\r", BORDER_CHAR); }
+            } else if self.file.is_empty() {
+                if display_row == height / 2 {
+                    self.draw_welcome_message();
+                } else {
+                    println!("{}\r", BORDER_CHAR);
+                }
+            }
 
             // println!("{}{}{}\r", "#", " ".repeat((self.terminal.size().w - 2) as usize), "#")
         }
