@@ -1,6 +1,9 @@
 use termion::event::Key;
 use crate::Terminal;
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+const BORDER_CHAR: char = '🚀';
+
 
 pub struct Editor {
     will_quit: bool,
@@ -45,24 +48,42 @@ impl Editor {
         Ok(()) // return empty result for now
     }
 
+    fn draw_welcome_message(&self) {
+        let mut welcome_message = format!("texte-rs -- v{}", VERSION);
+        let width = self.terminal.size().w as usize;
+        let len = welcome_message.len();
+        let padding = width.saturating_sub(len) / 2;
+        let spaces = " ".repeat(padding.saturating_sub(1));
+        welcome_message = format!("{}{}{}", BORDER_CHAR, spaces, welcome_message);
+        welcome_message.truncate(width);
+        println!("{}\r", welcome_message);
+    }
+
     /// called for every input stroke; cleans stdout and writes a complete screen
     fn refresh_screen(&self) -> Result<(), std::io::Error> {
-        Terminal::clear_screen();
+        Terminal::set_cursor_visible(false);
         Terminal::cursor_position(0, 0);
 
         if self.will_quit {
+            Terminal::clear_screen();
             println!("see you soon :)");
         } else {
             self.draw_rows();
             Terminal::cursor_position(0, 0);
         }
-
+        Terminal::set_cursor_visible(true);
         return Terminal::flush();
     }
 
     fn draw_rows(&self) {
-        for _ in 0..self.terminal.size().h {
-            println!("#\r");
+        let height = self.terminal.size().h;
+        for row in 0..height - 1 {
+            Terminal::clear_current_line();
+            if row == height / 3 {
+                self.draw_welcome_message();
+            } else { println!("{}\r", BORDER_CHAR); }
+
+            // println!("{}{}{}\r", "#", " ".repeat((self.terminal.size().w - 2) as usize), "#")
         }
     }
 }

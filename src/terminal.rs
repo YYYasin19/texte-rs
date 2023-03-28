@@ -42,6 +42,24 @@ impl Terminal {
         )
     }
 
+    pub fn set_cursor_visible(val: bool) {
+        if val {
+            Self::term_cmd(
+                termion::cursor::Show
+            )
+        } else {
+            Self::term_cmd(
+                termion::cursor::Hide
+            )
+        }
+    }
+
+    pub fn clear_current_line() {
+        Self::term_cmd(
+            termion::clear::CurrentLine
+        )
+    }
+
     pub fn flush() -> Result<(), io::Error> {
         stdout().flush()
     }
