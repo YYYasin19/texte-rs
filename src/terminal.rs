@@ -2,6 +2,7 @@ use std::io::{self, stdout, Write};
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::{IntoRawMode, RawTerminal};
+use crate::editor::Position;
 
 
 pub struct Size {
@@ -36,9 +37,15 @@ impl Terminal {
         Self::term_cmd(termion::clear::All);
     }
 
-    pub fn cursor_position(x: u16, y: u16) {
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn cursor_position(p: &Position) {
+        // destructure
+        let Position { x, y } = p;
         Self::term_cmd(
-            termion::cursor::Goto(x.saturating_add(1), y.saturating_add(1))
+            termion::cursor::Goto(
+                x.saturating_add(1) as u16,
+                y.saturating_add(1) as u16,
+            )
         )
     }
 

@@ -4,10 +4,15 @@ use crate::Terminal;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const BORDER_CHAR: char = '🚀';
 
+pub struct Position {
+    pub x: usize,
+    pub y: usize,
+}
 
 pub struct Editor {
     will_quit: bool,
     terminal: Terminal,
+    cursor_position: Position,
 }
 
 impl Editor {
@@ -15,6 +20,7 @@ impl Editor {
         Self {
             will_quit: false,
             terminal: Terminal::default().expect("Terminal should be initialized"),
+            cursor_position: Position { x: 0, y: 0 },
         }
     }
 
@@ -42,6 +48,9 @@ impl Editor {
         let key = Terminal::read_key()?; // propagate the error above
         match key {
             Key::Ctrl('q') => self.will_quit = true,
+            Key::Up | Key::Down | Key::Left | Key::Right
+            | Key::PageDown | Key::PageUp | Key::Home | Key::End
+            => self.move_cursor(key),
             _ => ()
         }
 
@@ -62,14 +71,16 @@ impl Editor {
     /// called for every input stroke; cleans stdout and writes a complete screen
     fn refresh_screen(&self) -> Result<(), std::io::Error> {
         Terminal::set_cursor_visible(false);
-        Terminal::cursor_position(0, 0);
+
+        // seems unimportant but this determines where we start writing/drawing
+        Terminal::cursor_position(&Position { x: 0, y: 0 });
 
         if self.will_quit {
             Terminal::clear_screen();
             println!("see you soon :)");
         } else {
             self.draw_rows();
-            Terminal::cursor_position(0, 0);
+            Terminal::cursor_position(&self.cursor_position);
         }
         Terminal::set_cursor_visible(true);
         return Terminal::flush();
@@ -79,12 +90,32 @@ impl Editor {
         let height = self.terminal.size().h;
         for row in 0..height - 1 {
             Terminal::clear_current_line();
-            if row == height / 3 {
+            if row == height / 2 {
                 self.draw_welcome_message();
             } else { println!("{}\r", BORDER_CHAR); }
 
             // println!("{}{}{}\r", "#", " ".repeat((self.terminal.size().w - 2) as usize), "#")
         }
+    }
+
+    /// changes the cursor position, which, when redrawn, appears at the correct place on the screen
+    fn move_cursor(&mut self, key: Key) {
+        let Position { mut y, mut x } = self.cursor_position;
+        let size = self.terminal.size();
+        let height = size.h.saturating_sub(1) as usize;
+        let width = size.w.saturating_sub(1) as usize;
+        match key {
+            Key::Up => y = y.saturating_sub(1),
+            Key::Down => { if y < height { y = y.saturating_add(1) } }
+            Key::Left => x = x.saturating_sub(1),
+            Key::Right => { if x < width { x = x.saturating_add(1) } }
+            Key::PageUp => y = 0,
+            Key::PageDown => y = height,
+            Key::Home => x = 0,
+            Key::End => x = width,
+            _ => (),
+        }
+        self.cursor_position = Position { x, y }
     }
 }
 
