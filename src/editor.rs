@@ -1,15 +1,20 @@
 use std::io::{self, stdout, Write};
 use termion::event::Key;
 use termion::input::TermRead;
+use crate::Terminal;
 
 
 pub struct Editor {
     will_quit: bool,
+    terminal: Terminal,
 }
 
 impl Editor {
     pub fn default() -> Self {
-        Self { will_quit: false }
+        Self {
+            will_quit: false,
+            terminal: Terminal::default().expect("Terminal should be initialized"),
+        }
     }
 
     /// takes control over stdin/out in raw mode and processes keys
@@ -42,6 +47,7 @@ impl Editor {
         Ok(()) // return empty result for now
     }
 
+    /// called for every input stroke; cleans stdout and writes a complete screen
     fn refresh_screen(&self) -> Result<(), io::Error> {
         // print!("\x1b[2J"); // escape sequence
         // clear screen and move cursor to start
@@ -49,9 +55,18 @@ impl Editor {
 
         if self.will_quit {
             println!("see you soon :)");
+        } else {
+            self.draw_rows();
+            term_cmd(termion::cursor::Goto(1, 1))
         }
 
         stdout().flush() // could return an error
+    }
+
+    fn draw_rows(&self) {
+        for _ in 0..self.terminal.size().h {
+            println!("~\r");
+        }
     }
 }
 
@@ -63,6 +78,10 @@ fn read_key() -> Result<Key, io::Error> {
             return k;
         }
     }
+}
+
+fn term_cmd<T: std::fmt::Display>(cmd_seq: T) {
+    print!("{}", cmd_seq)
 }
 
 /// clear the screen and write the error afterwards
