@@ -1,9 +1,12 @@
 use termion::event::Key;
+use crate::file::File;
 use crate::Terminal;
+use crate::Row;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const BORDER_CHAR: char = '🚀';
 
+#[derive(Default)]
 pub struct Position {
     pub x: usize,
     pub y: usize,
@@ -13,6 +16,7 @@ pub struct Editor {
     will_quit: bool,
     terminal: Terminal,
     cursor_position: Position,
+    file: File,
 }
 
 impl Editor {
@@ -20,7 +24,8 @@ impl Editor {
         Self {
             will_quit: false,
             terminal: Terminal::default().expect("Terminal should be initialized"),
-            cursor_position: Position { x: 0, y: 0 },
+            cursor_position: Position::default(),
+            file: File::open(),
         }
     }
 
@@ -68,12 +73,19 @@ impl Editor {
         println!("{}\r", welcome_message);
     }
 
+    pub fn draw_row(&self, row: &Row) {
+        let start = 0;
+        let end = self.terminal.size().w as usize;
+        let row = row.render(start, end);
+        println!("{}\r", row);
+    }
+
     /// called for every input stroke; cleans stdout and writes a complete screen
     fn refresh_screen(&self) -> Result<(), std::io::Error> {
         Terminal::set_cursor_visible(false);
 
         // seems unimportant but this determines where we start writing/drawing
-        Terminal::cursor_position(&Position { x: 0, y: 0 });
+        Terminal::cursor_position(&Position::default());
 
         if self.will_quit {
             Terminal::clear_screen();
@@ -88,9 +100,11 @@ impl Editor {
 
     fn draw_rows(&self) {
         let height = self.terminal.size().h;
-        for row in 0..height - 1 {
+        for display_row in 0..height - 1 {
             Terminal::clear_current_line();
-            if row == height / 2 {
+            if let Some(row) = self.file.row(display_row as usize) {
+                self.draw_row(row);
+            } else if self.file.is_empty() && display_row == height / 2 {
                 self.draw_welcome_message();
             } else { println!("{}\r", BORDER_CHAR); }
 
