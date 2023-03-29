@@ -166,9 +166,10 @@ impl Editor {
 
     /// changes the cursor position, which, when redrawn, appears at the correct place on the screen
     fn move_cursor(&mut self, key: Key) {
+        let terminal_height = self.terminal.size().h as usize;
         let Position { mut y, mut x } = self.cursor_position;
-        let height = self.file.len() as usize; // max height is file len
-        let width = if let Some(row) = self.file.row(y) {
+        let file_len = self.file.len() as usize; // max height is file len
+        let mut width = if let Some(row) = self.file.row(y) {
             row.len()
         } else {
             0
@@ -181,18 +182,45 @@ impl Editor {
                 y = y.saturating_sub(1);
             }
             Key::Down => {
-                if y < height { y = y.saturating_add(1) };
+                if y < file_len { y = y.saturating_add(1) };
             }
-            Key::Left => x = x.saturating_sub(1),
-            Key::Right => { if x < width { x = x.saturating_add(1) } }
-            Key::PageUp => y = 0,
-            Key::PageDown => y = height,
+            Key::Left => {
+                if x > 0 { // are we at the beginning of the row?
+                    x = x.saturating_sub(1)
+                } else if y > 0 { // are we at the beginning of the file?
+                    y -= 1;
+                    if let Some(row) = self.file.row(y) {
+                        x = row.len(); // x at end of row
+                    } else {
+                        x = 0;
+                    }
+                }
+            }
+            Key::Right => {
+                if x < width {
+                    x += 1
+                } else if y < file_len { // x at the end of the row, y not at the end of the file
+                    // go to beginning of the next row
+                    y += 1;
+                    x = 0;
+                }
+            }
+            Key::PageUp => {
+                y = if y.saturating_add(terminal_height) < file_len {
+                    y + terminal_height as usize
+                } else {
+                    0
+                }
+            }
+            Key::PageDown => {
+                y = if y > terminal_height { y - terminal_height } else { 0 }
+            }
             Key::Home => x = 0,
             Key::End => x = width,
             _ => (),
         }
         // this is now the width of the next row
-        let width = if let Some(row) = self.file.row(y) {
+        width = if let Some(row) = self.file.row(y) {
             row.len()
         } else {
             0

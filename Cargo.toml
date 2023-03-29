@@ -7,3 +7,4 @@ authors = ["Yasin Tatar <ytatar9@googlemail.com>"]
 
 [dependencies]
 termion = "1" # semantic versioning: this will get the latest 1.x.x version
+unicode-segmentation = "1"
