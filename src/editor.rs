@@ -1,3 +1,4 @@
+use std::cmp;
 use termion::event::Key;
 use crate::file::File;
 use crate::Terminal;
@@ -98,7 +99,10 @@ impl Editor {
             println!("see you soon :)");
         } else {
             self.draw_rows();
-            Terminal::cursor_position(&self.cursor_position);
+            Terminal::cursor_position(&Position {
+                x: self.cursor_position.x.saturating_sub(self.file_offset.x),
+                y: self.cursor_position.y.saturating_sub(self.file_offset.y),
+            });
         }
         Terminal::set_cursor_visible(true);
         return Terminal::flush();
@@ -163,12 +167,22 @@ impl Editor {
     /// changes the cursor position, which, when redrawn, appears at the correct place on the screen
     fn move_cursor(&mut self, key: Key) {
         let Position { mut y, mut x } = self.cursor_position;
-        let size = self.terminal.size();
         let height = self.file.len() as usize; // max height is file len
-        let width = size.w.saturating_sub(1) as usize;
+        let width = if let Some(row) = self.file.row(y) {
+            row.len()
+        } else {
+            0
+        };
+
+
+        // TODO: when changing rows (up or down) cursor should be at max x position of the new row
         match key {
-            Key::Up => y = y.saturating_sub(1),
-            Key::Down => { if y < height { y = y.saturating_add(1) } }
+            Key::Up => {
+                y = y.saturating_sub(1);
+            }
+            Key::Down => {
+                if y < height { y = y.saturating_add(1) };
+            }
             Key::Left => x = x.saturating_sub(1),
             Key::Right => { if x < width { x = x.saturating_add(1) } }
             Key::PageUp => y = 0,
@@ -177,6 +191,13 @@ impl Editor {
             Key::End => x = width,
             _ => (),
         }
+        // this is now the width of the next row
+        let width = if let Some(row) = self.file.row(y) {
+            row.len()
+        } else {
+            0
+        };
+        x = cmp::min(x, width);
         self.cursor_position = Position { x, y }
     }
 }
