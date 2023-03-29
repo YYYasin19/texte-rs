@@ -17,6 +17,7 @@ pub struct Editor {
     terminal: Terminal,
     cursor_position: Position,
     file: File,
+    file_offset: Position, // needed for scrolling
 }
 
 impl Editor {
@@ -36,6 +37,7 @@ impl Editor {
             will_quit: false,
             terminal: Terminal::default().expect("Terminal should be initialized"),
             cursor_position: Position::default(),
+            file_offset: Position::default(),
             file,
         }
     }
@@ -69,7 +71,7 @@ impl Editor {
             => self.move_cursor(key),
             _ => ()
         }
-
+        self.scroll(); // scroll at every key press
         Ok(()) // return empty result for now
     }
 
@@ -82,13 +84,6 @@ impl Editor {
         welcome_message = format!("{}{}{}", BORDER_CHAR, spaces, welcome_message);
         welcome_message.truncate(width);
         println!("{}\r", welcome_message);
-    }
-
-    pub fn draw_row(&self, row: &Row) {
-        let start = 0;
-        let end = self.terminal.size().w as usize;
-        let row = row.render(start, end);
-        println!("{}\r", row);
     }
 
     /// called for every input stroke; cleans stdout and writes a complete screen
@@ -109,11 +104,27 @@ impl Editor {
         return Terminal::flush();
     }
 
+
+    /// return the part of the file that represents the string we want to display on the screen
+    /// example: the user has scrolled to the right, so we want to display the file starting at the
+    /// current file offset
+    pub fn draw_row(&self, row: &Row) {
+        let width = self.terminal.size().w as usize;
+        let start = self.file_offset.x; // start at offset instead of 0
+        let end = start + width;
+
+        // display only the part of the row that fits on the screen
+        println!("{}\r", row.render(start, end));
+    }
+
+    /// draw relevant parts of file on the screen
     fn draw_rows(&self) {
         let height = self.terminal.size().h;
         for display_row in 0..height - 1 {
             Terminal::clear_current_line();
-            if let Some(row) = self.file.row(display_row as usize) {
+
+            // try to get the file row at the current display row + the file offset
+            if let Some(row) = self.file.row(display_row as usize + self.file_offset.y) {
                 self.draw_row(row);
             } else if self.file.is_empty() {
                 if display_row == height / 2 {
@@ -127,11 +138,33 @@ impl Editor {
         }
     }
 
+    fn scroll(&mut self) {
+        let Position { x, y } = self.cursor_position;
+        let width = self.terminal.size().w as usize;
+        let height = self.terminal.size().h as usize;
+        let mut file_offset = &mut self.file_offset;
+
+        if y < file_offset.y {
+            // we have scrolled up, so the cursor is above the screen
+            file_offset.y = y;
+        } else if y > file_offset.y.saturating_add(height) { // the cursor is below the screen
+            // change offset such that the last line of the file is at the bottom of the screen
+            file_offset.y = y.saturating_sub(height).saturating_add(1);
+        }
+
+        // equivalent logic for x direction
+        if x < file_offset.x {
+            file_offset.x = x;
+        } else if x > file_offset.x.saturating_add(width) {
+            file_offset.x = x.saturating_sub(width).saturating_add(1);
+        }
+    }
+
     /// changes the cursor position, which, when redrawn, appears at the correct place on the screen
     fn move_cursor(&mut self, key: Key) {
         let Position { mut y, mut x } = self.cursor_position;
         let size = self.terminal.size();
-        let height = size.h.saturating_sub(1) as usize;
+        let height = self.file.len() as usize; // max height is file len
         let width = size.w.saturating_sub(1) as usize;
         match key {
             Key::Up => y = y.saturating_sub(1),
