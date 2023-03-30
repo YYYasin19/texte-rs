@@ -1,4 +1,5 @@
 use std::cmp;
+use termion::color;
 use termion::event::Key;
 use crate::file::File;
 use crate::Terminal;
@@ -6,6 +7,8 @@ use crate::Row;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const BORDER_CHAR: char = '🚀';
+const STATUS_BAR_BG_COLOR: color::Rgb = color::Rgb(255, 255, 255);
+const STATUS_FG_COLOR: color::Rgb = color::Rgb(63, 63, 63);
 
 #[derive(Default)]
 pub struct Position {
@@ -99,6 +102,8 @@ impl Editor {
             println!("see you soon :)");
         } else {
             self.draw_rows();
+            self.draw_status_bar();
+            self.draw_message_bar();
             Terminal::cursor_position(&Position {
                 x: self.cursor_position.x.saturating_sub(self.file_offset.x),
                 y: self.cursor_position.y.saturating_sub(self.file_offset.y),
@@ -124,7 +129,10 @@ impl Editor {
     /// draw relevant parts of file on the screen
     fn draw_rows(&self) {
         let height = self.terminal.size().h;
-        for display_row in 0..height - 1 {
+
+        // status bar is the first two rows
+        // example: real height: 1000, height: 1000-2 = 998 -> scroll from 2 to 1000
+        for display_row in 0..(height) {
             Terminal::clear_current_line();
 
             // try to get the file row at the current display row + the file offset
@@ -227,6 +235,34 @@ impl Editor {
         };
         x = cmp::min(x, width);
         self.cursor_position = Position { x, y }
+    }
+
+    fn draw_status_bar(&self) {
+        let mut status;
+        let width = self.terminal.size().w as usize;
+        let mut file_name = "---".to_string();
+        if let Some(name) = &self.file.file_name {
+            file_name = name.clone();
+            file_name.truncate(30);
+        }
+        status = format!("{} - {} lines", file_name, self.file.len());
+
+        let line_indicator = format!("{} / {}", self.cursor_position.y + 1, self.file.len());
+        let len = status.len() + line_indicator.len();
+        if width > len {
+            status.push_str(&" ".repeat(width - len));
+        }
+        status = format!("{}{}", status, line_indicator);
+        status.truncate(width);
+        Terminal::set_fg_color(STATUS_BAR_BG_COLOR);
+        Terminal::set_fg_color(STATUS_FG_COLOR);
+        print!("{}\r", status);
+        Terminal::reset_bg_color();
+        Terminal::reset_fg_color();
+    }
+
+    fn draw_message_bar(&self) {
+        Terminal::clear_current_line();
     }
 }
 

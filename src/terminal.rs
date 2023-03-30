@@ -1,4 +1,5 @@
 use std::io::{self, stdout, Write};
+use termion::color;
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::{IntoRawMode, RawTerminal};
@@ -22,7 +23,7 @@ impl Terminal {
         Ok(Self {
             size: Size {
                 w: size.0,
-                h: size.1,
+                h: size.1.saturating_sub(2), // status bar is 2 lines
             },
             _stdout: stdout().into_raw_mode()?, // may panic
         })
@@ -82,5 +83,21 @@ impl Terminal {
 
     fn term_cmd<T: std::fmt::Display>(cmd_seq: T) {
         print!("{}", cmd_seq)
+    }
+
+    pub fn set_bg_color(color: color::Rgb) {
+        Self::term_cmd(color::Bg(color));
+    }
+
+    pub fn reset_bg_color() {
+        Self::term_cmd(color::Bg(color::Reset));
+    }
+
+    pub fn set_fg_color(color: color::Rgb) {
+        print!("{}", color::Fg(color));
+    }
+
+    pub fn reset_fg_color() {
+        print!("{}", color::Fg(color::Reset));
     }
 }

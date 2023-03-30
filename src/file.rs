@@ -4,6 +4,7 @@ use std::fs;
 #[derive(Default)]
 pub struct File {
     pub rows: Vec<Row>,
+    pub file_name: Option<String>,
 }
 
 impl File {
@@ -17,7 +18,7 @@ impl File {
         }
 
 
-        Ok(Self { rows })
+        Ok(Self { rows, file_name: Some(file_path.to_string()) })
     }
 
     /// get row from file at index
