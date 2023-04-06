@@ -101,9 +101,9 @@ impl Editor {
             Terminal::clear_screen();
             println!("see you soon :)");
         } else {
-            self.draw_rows();
-            self.draw_status_bar();
-            self.draw_message_bar();
+            self.draw_rows(); // draw the file contents (len: file_len)
+            self.draw_status_bar(); //  draw the status bar (len: 1)
+            self.draw_message_bar(); // draw the message bar (len: 1)
             Terminal::cursor_position(&Position {
                 x: self.cursor_position.x.saturating_sub(self.file_offset.x),
                 y: self.cursor_position.y.saturating_sub(self.file_offset.y),
@@ -132,7 +132,7 @@ impl Editor {
 
         // status bar is the first two rows
         // example: real height: 1000, height: 1000-2 = 998 -> scroll from 2 to 1000
-        for display_row in 0..(height) {
+        for display_row in 0..height {
             Terminal::clear_current_line();
 
             // try to get the file row at the current display row + the file offset
@@ -237,9 +237,11 @@ impl Editor {
         self.cursor_position = Position { x, y }
     }
 
+    /// Called on the correct line to print the status bar
     fn draw_status_bar(&self) {
         let mut status;
         let width = self.terminal.size().w as usize;
+
         let mut file_name = "---".to_string();
         if let Some(name) = &self.file.file_name {
             file_name = name.clone();
@@ -249,16 +251,15 @@ impl Editor {
 
         let line_indicator = format!("{} / {}", self.cursor_position.y + 1, self.file.len());
         let len = status.len() + line_indicator.len();
-        if width > len {
+        if width > len { // add spaces to fill the line to the right
             status.push_str(&" ".repeat(width - len));
         }
         status = format!("{}{}", status, line_indicator);
-        status.truncate(width);
-        Terminal::set_fg_color(STATUS_BAR_BG_COLOR);
-        Terminal::set_fg_color(STATUS_FG_COLOR);
-        print!("{}\r", status);
-        Terminal::reset_bg_color();
-        Terminal::reset_fg_color();
+        // status.truncate(width);
+        // macOS issue: https://github.com/pflenker/hecto-tutorial/issues/3 (fix in termion?)
+        Terminal::set_status_bar_color();
+        println!("{}\r", status);
+        Terminal::reset_status_bar_color();
     }
 
     fn draw_message_bar(&self) {

@@ -100,4 +100,15 @@ impl Terminal {
     pub fn reset_fg_color() {
         print!("{}", color::Fg(color::Reset));
     }
+
+    pub fn set_status_bar_color() {
+        // Self::term_cmd(termion::style::Invert);
+        Self::term_cmd(color::Fg(color::Black));
+        Self::term_cmd(color::Bg(color::White));
+    }
+
+    pub fn reset_status_bar_color() {
+        Self::term_cmd(color::Fg(color::Reset));
+        Self::term_cmd(color::Bg(color::Reset));
+    }
 }
