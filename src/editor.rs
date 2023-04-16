@@ -1,5 +1,5 @@
 use std::cmp;
-use termion::color;
+use std::time::{Duration, Instant};
 use termion::event::Key;
 use crate::file::File;
 use crate::Terminal;
@@ -7,8 +7,8 @@ use crate::Row;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const BORDER_CHAR: char = '🚀';
-const STATUS_BAR_BG_COLOR: color::Rgb = color::Rgb(255, 255, 255);
-const STATUS_FG_COLOR: color::Rgb = color::Rgb(63, 63, 63);
+// const STATUS_BAR_BG_COLOR: color::Rgb = color::Rgb(255, 255, 255);
+// const STATUS_FG_COLOR: color::Rgb = color::Rgb(63, 63, 63);
 
 #[derive(Default)]
 pub struct Position {
@@ -21,7 +21,9 @@ pub struct Editor {
     terminal: Terminal,
     cursor_position: Position,
     file: File,
-    file_offset: Position, // needed for scrolling
+    file_offset: Position,
+    // needed for scrolling
+    status_message: StatusMessage,
 }
 
 impl Editor {
@@ -29,9 +31,17 @@ impl Editor {
 
         // open a default file
         let args: Vec<String> = std::env::args().collect();
+        let mut initial_status = String::from("Welcome! Press Ctrl-Q to quit.");
         let file = if args.len() > 1 {
             let file_path = &args[1];
-            File::open(file_path).unwrap_or_default()
+            let file = File::open(file_path);
+            if file.is_ok() {
+                initial_status = String::from("file opened");
+                file.unwrap()
+            } else {
+                initial_status = format!("error: could not open file: {}", file_path);
+                File::default()
+            }
         } else {
             File::default()
         };
@@ -43,6 +53,7 @@ impl Editor {
             cursor_position: Position::default(),
             file_offset: Position::default(),
             file,
+            status_message: StatusMessage::from(initial_status),
         }
     }
 
@@ -155,7 +166,7 @@ impl Editor {
     fn scroll(&mut self) {
         let Position { x, y } = self.cursor_position;
         let width = self.terminal.size().w as usize;
-        // subtract 1 from the terminal-height to accomodate for the status bar
+        // subtract 1 from the terminal-height to accommodate for the status bar
         let height = (self.terminal.size().h - 1) as usize;
         let mut file_offset = &mut self.file_offset;
 
@@ -245,7 +256,7 @@ impl Editor {
         let mut status;
         let width = self.terminal.size().w as usize;
 
-        let mut file_name = "---".to_string();
+        let mut file_name = String::from("");
         if let Some(name) = &self.file.file_name {
             file_name = name.clone();
             file_name.truncate(30);
@@ -267,6 +278,15 @@ impl Editor {
 
     fn draw_message_bar(&self) {
         Terminal::clear_current_line();
+        let msg = &self.status_message;
+        // TODO: setup a message queue instead of just displaying the most current message
+        // display the message only if it is less than 5 seconds old
+        if (Instant::now() - msg.time) < Duration::new(5, 0) {
+            println!(
+                "{}\r",
+                &msg.text[0..cmp::min(msg.text.len(), self.terminal.size().w as usize)]
+            );
+        }
     }
 }
 
@@ -275,4 +295,19 @@ impl Editor {
 fn die(e: std::io::Error) {
     Terminal::clear_screen();
     panic!("{}", e);
+}
+
+struct StatusMessage {
+    text: String,
+    time: Instant,
+}
+
+
+impl From<String> for StatusMessage {
+    fn from(message: String) -> Self {
+        Self {
+            text: message,
+            time: Instant::now(),
+        }
+    }
 }
