@@ -150,10 +150,13 @@ impl Editor {
         }
     }
 
+    /// depending on the cursor-position updates the file offset,
+    /// s.t. we show the correct portion of the file.
     fn scroll(&mut self) {
         let Position { x, y } = self.cursor_position;
         let width = self.terminal.size().w as usize;
-        let height = self.terminal.size().h as usize;
+        // subtract 1 from the terminal-height to accomodate for the status bar
+        let height = (self.terminal.size().h - 1) as usize;
         let mut file_offset = &mut self.file_offset;
 
         if y < file_offset.y {
